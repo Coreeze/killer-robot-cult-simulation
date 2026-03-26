@@ -21,12 +21,13 @@ export interface Room {
 export interface Robot {
   id: AgentId;
   name: string;
-  look: string;           // god prompt
-  identity: string;       // god prompt, stays unchanged
-  beliefs: string;        // concatenation of whisper/voice of god
+  look: string; // god prompt
+  identity: string; // god prompt, stays unchanged
+  beliefs: string; // concatenation of whisper/voice of god
   status: "alive" | "dead" | "ejected";
   roomId: RoomId;
   imageUrl: string;
+  killer: boolean;
   lastMessage?: string;
 }
 
@@ -44,20 +45,19 @@ export interface RoomMessage {
 export interface God {
   id: GodId;
   agentId: AgentId;
-  isKiller: boolean;
   connected: boolean;
 }
 
+// just for logging purposes
 export interface GodWhisper {
   godId: GodId;
   targetRobotId: AgentId;
-  words: string;          // 3 words max, anytime
-  tick: number;
+  words: string; // 3 words max, anytime
 }
 
 export interface VoiceOfGodEntry {
   godId: GodId;
-  words: string;          // 3 words
+  words: string; // 3 words
   tick: number;
 }
 
@@ -66,19 +66,17 @@ export interface VoiceOfGodRound {
   selectedGods: GodId[];
   submissions: VoiceOfGodEntry[];
   votes: Map<GodId, GodId>;
-  winner?: VoiceOfGodEntry;
   submissionDeadline: number;
   voteDeadline: number;
+  winner?: VoiceOfGodEntry;
 }
 
 // --- Council ---
 export interface CouncilSession {
   id: string;
   calledBy: AgentId;
-  startTick: number;
-  endTick: number;
   messages: CouncilMessage[];
-  votes: Map<AgentId, AgentId | "skip">;
+  votes: Map<AgentId, AgentId>;
   result?: CouncilResult;
   active: boolean;
 }
@@ -86,7 +84,7 @@ export interface CouncilSession {
 export interface CouncilMessage {
   agentId: AgentId;
   message: string;
-  tick: number;
+  timestamp: number;
 }
 
 export interface CouncilResult {
@@ -100,8 +98,8 @@ export type GamePhase = "lobby" | "setup" | "playing" | "vog" | "council" | "end
 // --- Game Config ---
 export interface GameConfig {
   minGods: number;
-  maxGods: number;
   setupDurationTicks: number;
+  minVoiceOfGodSelections: number;
   voiceOfGodSelectionRate: number;
   voiceOfGodSubmitTicks: number;
   voiceOfGodVoteTicks: number;
@@ -114,9 +112,9 @@ export interface GameConfig {
 }
 
 export const DEFAULT_CONFIG: GameConfig = {
-  minGods: 3,
-  maxGods: 10,
+  minGods: 2,
   setupDurationTicks: 30,
+  minVoiceOfGodSelections: 2,
   voiceOfGodSelectionRate: 0.1,
   voiceOfGodSubmitTicks: 30,
   voiceOfGodVoteTicks: 30,
@@ -138,11 +136,25 @@ export interface AgentAction {
   payload: MovePayload | TalkPayload | KillPayload | CallCouncilPayload | IdlePayload;
 }
 
-export interface MovePayload { type: "move"; targetRoomId: RoomId; }
-export interface TalkPayload { type: "talk"; message: string; }
-export interface KillPayload { type: "kill"; targetAgentId: AgentId; }
-export interface CallCouncilPayload { type: "call_council"; reason: string; }
-export interface IdlePayload { type: "idle"; }
+export interface MovePayload {
+  type: "move";
+  targetRoomId: RoomId;
+}
+export interface TalkPayload {
+  type: "talk";
+  message: string;
+}
+export interface KillPayload {
+  type: "kill";
+  targetAgentId: AgentId;
+}
+export interface CallCouncilPayload {
+  type: "call_council";
+  reason: string;
+}
+export interface IdlePayload {
+  type: "idle";
+}
 
 // --- Communication Messages ---
 export type MessageChannel = "direct" | "room" | "council" | "broadcast" | "god";
@@ -186,7 +198,7 @@ export interface GameState {
   killersFound: number;
   totalKillers: number;
   councilCooldown: number;
-  roomMessages: Record<RoomId, RoomMessage[]>;  // recent chat per room
+  roomMessages: Record<RoomId, RoomMessage[]>; // recent chat per room
   council?: {
     messages: CouncilMessage[];
     votes: Record<string, string>;

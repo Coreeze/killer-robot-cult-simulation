@@ -4,18 +4,31 @@
 // Simplified: no memory, no mood objects, flat Robot state.
 // ============================================================
 
-import EventEmitter from 'eventemitter3';
-import { Agent } from '../agents/Agent.js';
-import { World } from '../game/World.js';
-import { CouncilManager } from '../game/Council.js';
-import { VoiceOfGodManager } from '../game/VoiceOfGod.js';
-import { MessageBus } from '../communication/MessageBus.js';
+import EventEmitter from "eventemitter3";
+import { Agent } from "../agents/Agent.js";
+import { World } from "../game/World.js";
+import { CouncilManager } from "../game/Council.js";
+import { VoiceOfGodManager } from "../game/VoiceOfGod.js";
+import { MessageBus } from "../communication/MessageBus.js";
 import type {
-  AgentId, GodId, God, GamePhase, GameConfig, EngineEvent,
-  EngineEventType, AgentAction, AgentContext, LLMProvider, RoomMessage,
-  VoiceOfGodEntry, CouncilResult, GameState, GodWhisper, Room,
+  AgentId,
+  GodId,
+  God,
+  GamePhase,
+  GameConfig,
+  EngineEvent,
+  EngineEventType,
+  AgentAction,
+  AgentContext,
+  LLMProvider,
+  RoomMessage,
+  VoiceOfGodEntry,
+  CouncilResult,
+  GameState,
+  GodWhisper,
+  Room,
   AsyncOperation,
-} from '../types/index.js';
+} from "../types/index.js";
 
 export interface EngineCallbacks {
   onTick?: (tick: number) => void;
@@ -25,12 +38,12 @@ export interface EngineCallbacks {
   onCouncilCalled?: (agentId: AgentId) => void;
   onCouncilEnded?: (result: CouncilResult) => void;
   onVoiceOfGod?: (entry: VoiceOfGodEntry) => void;
-  onGameOver?: (winningSide: 'crew' | 'killers') => void;
+  onGameOver?: (winningSide: "crew" | "killers") => void;
 }
 
 export class Engine {
   private tick = 0;
-  private phase: GamePhase = 'lobby';
+  private phase: GamePhase = "lobby";
   private running = false;
   private tickInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -81,10 +94,9 @@ export class Engine {
   // ==================== GAME FLOW ====================
 
   addGod(godId: GodId): God | null {
-    if (this.phase !== 'lobby') return null;
-    if (this.gods.size >= this.config.maxGods) return null;
+    if (this.phase !== "lobby") return null;
 
-    const god: God = { id: godId, agentId: '', isKiller: false, connected: true };
+    const god: God = { id: godId, agentId: "", connected: true };
     this.gods.set(godId, god);
     return god;
   }
@@ -95,7 +107,7 @@ export class Engine {
 
   /** Load map and start game */
   startGame(mapLayout: Room[]): boolean {
-    if (this.phase !== 'lobby') return false;
+    if (this.phase !== "lobby") return false;
     if (this.gods.size < this.config.minGods) return false;
 
     // Load the map
@@ -111,19 +123,19 @@ export class Engine {
       shuffled[i].isKiller = true;
     }
 
-    this.setPhase('setup');
+    this.setPhase("setup");
     return true;
   }
 
   /** God defines their robot during setup */
   defineRobot(godId: GodId, name: string, look: string, identity: string, imageUrl?: string): Agent | null {
-    if (this.phase !== 'setup') return null;
+    if (this.phase !== "setup") return null;
     const god = this.gods.get(godId);
     if (!god) return null;
     if (god.agentId) return null;
 
     const roomId = this.world.getRandomRoomId();
-    const agent = new Agent(name, look, identity, roomId, god.isKiller ? 'killer' : 'crewmate');
+    const agent = new Agent(name, look, identity, roomId, god.isKiller ? "killer" : "crewmate");
     if (imageUrl) agent.imageUrl = imageUrl;
 
     this.world.placeAgent(agent.id, roomId);
@@ -135,16 +147,16 @@ export class Engine {
 
   /** Start the main simulation */
   startSimulation(): void {
-    if (this.phase !== 'setup') return;
+    if (this.phase !== "setup") return;
 
     // Auto-generate default robots for gods who didn't define one
     for (const god of this.gods.values()) {
       if (!god.agentId) {
-        this.defineRobot(god.id, `Robot-${god.id.slice(0, 4)}`, '🤖', 'a robot on a spaceship');
+        this.defineRobot(god.id, `Robot-${god.id.slice(0, 4)}`, "🤖", "a robot on a spaceship");
       }
     }
 
-    this.setPhase('playing');
+    this.setPhase("playing");
     this.startHeartbeat();
   }
 
@@ -172,18 +184,18 @@ export class Engine {
     this.tick++;
 
     switch (this.phase) {
-      case 'playing':
+      case "playing":
         this.tickPlaying();
         break;
-      case 'council':
+      case "council":
         this.tickCouncil();
         break;
-      case 'vog':
+      case "vog":
         this.tickVoiceOfGod();
         break;
     }
 
-    this.emit('tick', { tick: this.tick });
+    this.emit("tick", { tick: this.tick });
     this.callbacks.onTick?.(this.tick);
   }
 
@@ -218,15 +230,15 @@ export class Engine {
         const ejectedAgent = this.agents.get(result.ejected);
         if (ejectedAgent) {
           ejectedAgent.eject();
-          if (ejectedAgent.role === 'killer') {
+          if (ejectedAgent.role === "killer") {
             this.killersFound++;
           }
-          this.emit('agent_ejected', { agentId: result.ejected, role: ejectedAgent.role });
+          this.emit("agent_ejected", { agentId: result.ejected, role: ejectedAgent.role });
         }
       }
 
       this.callbacks.onCouncilEnded?.(result);
-      this.setPhase('playing');
+      this.setPhase("playing");
       this.checkWinCondition();
     }
   }
@@ -234,7 +246,7 @@ export class Engine {
   private tickVoiceOfGod(): void {
     const vogPhase = this.voiceOfGod.getPhase(this.tick);
 
-    if (vogPhase === 'done') {
+    if (vogPhase === "done") {
       const winner = this.voiceOfGod.endRound(this.tick);
       if (winner) {
         // Apply voice of god to ALL alive agents' beliefs
@@ -242,9 +254,9 @@ export class Engine {
           agent.applyVoiceOfGod(winner.words);
         }
         this.callbacks.onVoiceOfGod?.(winner);
-        this.emit('voice_of_god', winner);
+        this.emit("voice_of_god", winner);
       }
-      this.setPhase('playing');
+      this.setPhase("playing");
     }
   }
 
@@ -253,7 +265,7 @@ export class Engine {
   private scheduleAgentOperation(agent: Agent): void {
     if (agent.inProgressOperation) return;
 
-    const op = agent.startOperation('decide_action', this.tick);
+    const op = agent.startOperation("decide_action", this.tick);
 
     if (!this.llm) {
       this.fallbackBehavior(agent, op);
@@ -268,16 +280,14 @@ export class Engine {
 
     try {
       const room = this.world.getAgentRoom(agent.id);
-      const roomName = room?.name || 'Unknown';
+      const roomName = room?.name || "Unknown";
       const nearbyIds = this.world.getNearbyAgents(agent.id);
       const nearbyNames = nearbyIds
-        .map(id => this.agents.get(id))
-        .filter((a): a is Agent => a !== undefined && a.status === 'alive')
-        .map(a => a.name);
-      const connectedRooms = room
-        ? this.world.getConnectedRooms(room.id).map(r => r.name)
-        : [];
-      const recentMessages = room ? (this.roomMessages.get(room.id) || []) : [];
+        .map((id) => this.agents.get(id))
+        .filter((a): a is Agent => a !== undefined && a.status === "alive")
+        .map((a) => a.name);
+      const connectedRooms = room ? this.world.getConnectedRooms(room.id).map((r) => r.name) : [];
+      const recentMessages = room ? this.roomMessages.get(room.id) || [] : [];
 
       const context = agent.buildContext(nearbyNames, roomName, connectedRooms, recentMessages, this.phase);
       const prompt = this.buildActionPrompt(agent, context, nearbyIds);
@@ -287,36 +297,39 @@ export class Engine {
       if (action) {
         agent.completeOperation(op, action);
       } else {
-        op.status = 'failed';
+        op.status = "failed";
         agent.inProgressOperation = null;
       }
     } catch {
-      op.status = 'failed';
+      op.status = "failed";
       agent.inProgressOperation = null;
     }
   }
 
-  private fallbackBehavior(agent: Agent, op: NonNullable<Agent['inProgressOperation']>): void {
+  private fallbackBehavior(agent: Agent, op: NonNullable<Agent["inProgressOperation"]>): void {
     const nearbyIds = this.world.getNearbyAgents(agent.id);
     const room = this.world.getAgentRoom(agent.id);
 
     let action: AgentAction;
 
-    if (agent.role === 'killer' && agent.canKill(this.tick) && nearbyIds.length === 1 && Math.random() < 0.3) {
-      action = { type: 'kill', agentId: agent.id, tick: this.tick, payload: { type: 'kill', targetAgentId: nearbyIds[0] } };
+    if (agent.role === "killer" && agent.canKill(this.tick) && nearbyIds.length === 1 && Math.random() < 0.3) {
+      action = { type: "kill", agentId: agent.id, tick: this.tick, payload: { type: "kill", targetAgentId: nearbyIds[0] } };
     } else if (nearbyIds.length > 0 && Math.random() < 0.4) {
-      const lines = agent.role === 'killer'
-        ? ['Everything seems fine.', 'Nothing suspicious here.', 'We should stick together.']
-        : ['Did you hear something?', 'I don\'t feel safe.', 'Something doesn\'t add up...'];
+      const lines =
+        agent.role === "killer"
+          ? ["Everything seems fine.", "Nothing suspicious here.", "We should stick together."]
+          : ["Did you hear something?", "I don't feel safe.", "Something doesn't add up..."];
       action = {
-        type: 'talk', agentId: agent.id, tick: this.tick,
-        payload: { type: 'talk', message: lines[Math.floor(Math.random() * lines.length)] },
+        type: "talk",
+        agentId: agent.id,
+        tick: this.tick,
+        payload: { type: "talk", message: lines[Math.floor(Math.random() * lines.length)] },
       };
     } else if (room && room.connections.length > 0) {
       const targetRoomId = room.connections[Math.floor(Math.random() * room.connections.length)];
-      action = { type: 'move', agentId: agent.id, tick: this.tick, payload: { type: 'move', targetRoomId } };
+      action = { type: "move", agentId: agent.id, tick: this.tick, payload: { type: "move", targetRoomId } };
     } else {
-      action = { type: 'idle', agentId: agent.id, tick: this.tick, payload: { type: 'idle' } };
+      action = { type: "idle", agentId: agent.id, tick: this.tick, payload: { type: "idle" } };
     }
 
     agent.completeOperation(op, action);
@@ -331,24 +344,32 @@ export class Engine {
     agent.currentAction = action.type;
 
     switch (action.type) {
-      case 'move': this.processMove(agent, action); break;
-      case 'talk': this.processTalk(agent, action); break;
-      case 'kill': this.processKill(agent, action); break;
-      case 'call_council': this.processCallCouncil(agent, action); break;
+      case "move":
+        this.processMove(agent, action);
+        break;
+      case "talk":
+        this.processTalk(agent, action);
+        break;
+      case "kill":
+        this.processKill(agent, action);
+        break;
+      case "call_council":
+        this.processCallCouncil(agent, action);
+        break;
     }
 
     this.callbacks.onAgentAction?.(action);
-    this.emit('agent_action', action);
+    this.emit("agent_action", action);
   }
 
   private processMove(agent: Agent, action: AgentAction): void {
-    const payload = action.payload as { type: 'move'; targetRoomId: string };
+    const payload = action.payload as { type: "move"; targetRoomId: string };
     this.world.moveAgent(agent.id, payload.targetRoomId);
     agent.roomId = payload.targetRoomId;
   }
 
   private processTalk(agent: Agent, action: AgentAction): void {
-    const payload = action.payload as { type: 'talk'; message: string };
+    const payload = action.payload as { type: "talk"; message: string };
     const room = this.world.getAgentRoom(agent.id);
     if (!room) return;
 
@@ -372,18 +393,18 @@ export class Engine {
   }
 
   private processKill(agent: Agent, action: AgentAction): void {
-    const payload = action.payload as { type: 'kill'; targetAgentId: AgentId };
-    if (agent.role !== 'killer') return;
+    const payload = action.payload as { type: "kill"; targetAgentId: AgentId };
+    if (agent.role !== "killer") return;
 
     const victim = this.agents.get(payload.targetAgentId);
-    if (!victim || victim.status !== 'alive') return;
+    if (!victim || victim.status !== "alive") return;
     if (victim.roomId !== agent.roomId) return;
 
     victim.die();
     agent.lastKillTick = this.tick;
 
     this.callbacks.onAgentDied?.(victim.id, agent.id);
-    this.emit('agent_died', { victimId: victim.id, killerId: agent.id });
+    this.emit("agent_died", { victimId: victim.id, killerId: agent.id });
   }
 
   private processCallCouncil(agent: Agent, _action: AgentAction): void {
@@ -392,10 +413,10 @@ export class Engine {
 
     agent.lastCouncilCall = this.tick;
     this.council.startCouncil(agent.id, this.tick);
-    this.setPhase('council');
+    this.setPhase("council");
 
     this.callbacks.onCouncilCalled?.(agent.id);
-    this.emit('council_called', { agentId: agent.id });
+    this.emit("council_called", { agentId: agent.id });
   }
 
   // ==================== VOICE OF GOD ====================
@@ -403,7 +424,7 @@ export class Engine {
   private startVoiceOfGodRound(): void {
     const godList = [...this.gods.values()];
     this.voiceOfGod.startRound(godList, this.tick);
-    this.setPhase('vog');
+    this.setPhase("vog");
   }
 
   // ==================== GOD INPUTS ====================
@@ -416,7 +437,7 @@ export class Engine {
     if (words.trim().split(/\s+/).length > this.config.maxWords) return false;
 
     const agent = this.agents.get(god.agentId);
-    if (!agent || agent.status !== 'alive') return false;
+    if (!agent || agent.status !== "alive") return false;
 
     agent.applyWhisper(words.trim());
 
@@ -428,7 +449,7 @@ export class Engine {
     };
     this.recentWhispers.push(whisper);
 
-    this.emit('god_whisper', whisper);
+    this.emit("god_whisper", whisper);
     return true;
   }
 
@@ -440,7 +461,7 @@ export class Engine {
     return this.voiceOfGod.castVote(godId, forGodId);
   }
 
-  voteInCouncil(godId: GodId, targetAgentId: AgentId | 'skip'): boolean {
+  voteInCouncil(godId: GodId, targetAgentId: AgentId | "skip"): boolean {
     const god = this.gods.get(godId);
     if (!god || !god.agentId) return false;
     return this.council.castVote(god.agentId, targetAgentId);
@@ -450,22 +471,22 @@ export class Engine {
 
   private checkWinCondition(): void {
     const alive = this.getAliveAgents();
-    const aliveKillers = alive.filter(a => a.role === 'killer');
-    const aliveCrew = alive.filter(a => a.role === 'crewmate');
+    const aliveKillers = alive.filter((a) => a.role === "killer");
+    const aliveCrew = alive.filter((a) => a.role === "crewmate");
 
     if (aliveKillers.length >= aliveCrew.length && aliveKillers.length > 0) {
-      this.setPhase('ended');
+      this.setPhase("ended");
       this.stop();
-      this.callbacks.onGameOver?.('killers');
-      this.emit('game_over', { winner: 'killers' });
+      this.callbacks.onGameOver?.("killers");
+      this.emit("game_over", { winner: "killers" });
       return;
     }
 
     if (aliveKillers.length === 0) {
-      this.setPhase('ended');
+      this.setPhase("ended");
       this.stop();
-      this.callbacks.onGameOver?.('crew');
-      this.emit('game_over', { winner: 'crew' });
+      this.callbacks.onGameOver?.("crew");
+      this.emit("game_over", { winner: "crew" });
     }
   }
 
@@ -478,11 +499,11 @@ export class Engine {
 
     // Calculate countdown based on current phase
     let countdown = 0;
-    if (this.phase === 'council' && council) {
+    if (this.phase === "council" && council) {
       countdown = Math.max(0, council.endTick - this.tick);
-    } else if (this.phase === 'vog' && vogRound) {
-      if (vogPhase === 'submission') countdown = Math.max(0, vogRound.submissionDeadline - this.tick);
-      else if (vogPhase === 'voting') countdown = Math.max(0, vogRound.voteDeadline - this.tick);
+    } else if (this.phase === "vog" && vogRound) {
+      if (vogPhase === "submission") countdown = Math.max(0, vogRound.submissionDeadline - this.tick);
+      else if (vogPhase === "voting") countdown = Math.max(0, vogRound.voteDeadline - this.tick);
     }
 
     // Build room messages record
@@ -494,29 +515,32 @@ export class Engine {
     return {
       phase: this.phase,
       rooms: this.world.getAllRooms(),
-      robots: Object.fromEntries(
-        [...this.agents.values()].map(a => [a.id, a.toRobot(this.phase === 'ended')])
-      ),
+      robots: Object.fromEntries([...this.agents.values()].map((a) => [a.id, a.toRobot(this.phase === "ended")])),
       countdown,
       killersFound: this.killersFound,
       totalKillers: this.totalKillers,
       councilCooldown: Math.max(0, this.config.councilCooldownTicks - (this.tick - (council ? council.endTick : 0))),
       roomMessages: roomMsgs,
-      council: council?.active ? {
-        messages: council.messages,
-        votes: Object.fromEntries(council.votes),
-      } : undefined,
-      voiceOfGod: vogRound && vogPhase ? {
-        selectedGods: vogRound.selectedGods,
-        submissions: vogRound.submissions,
-        phase: vogPhase === 'done' ? 'done' : vogPhase,
-        winnerWords: vogRound.winner?.words,
-      } : undefined,
+      council: council?.active
+        ? {
+            messages: council.messages,
+            votes: Object.fromEntries(council.votes),
+          }
+        : undefined,
+      voiceOfGod:
+        vogRound && vogPhase
+          ? {
+              selectedGods: vogRound.selectedGods,
+              submissions: vogRound.submissions,
+              phase: vogPhase === "done" ? "done" : vogPhase,
+              winnerWords: vogRound.winner?.words,
+            }
+          : undefined,
     };
   }
 
   getAliveAgents(): Agent[] {
-    return [...this.agents.values()].filter(a => a.status === 'alive');
+    return [...this.agents.values()].filter((a) => a.status === "alive");
   }
 
   getAgent(agentId: AgentId): Agent | undefined {
@@ -538,7 +562,7 @@ export class Engine {
     this.phase = phase;
     this.phaseStartTick = this.tick;
     this.callbacks.onPhaseChange?.(phase, this.tick);
-    this.emit('phase_change', { from: old, to: phase, tick: this.tick });
+    this.emit("phase_change", { from: old, to: phase, tick: this.tick });
   }
 
   private emit(type: EngineEventType, data: unknown): void {
@@ -548,34 +572,39 @@ export class Engine {
   // ==================== PROMPT BUILDING ====================
 
   private buildActionPrompt(agent: Agent, context: AgentContext, nearbyIds: AgentId[]): string {
-    const roleInfo = agent.role === 'killer'
-      ? 'You are a KILLER. Eliminate others secretly. Act normal, deflect suspicion.'
-      : 'You are a CREWMATE. Identify killers and survive. Be observant.';
+    const roleInfo =
+      agent.role === "killer"
+        ? "You are a KILLER. Eliminate others secretly. Act normal, deflect suspicion."
+        : "You are a CREWMATE. Identify killers and survive. Be observant.";
 
-    const actions = ['move <room_name>', 'talk <message>', 'idle'];
-    if (agent.role === 'killer' && agent.canKill(this.tick) && nearbyIds.length > 0) {
-      actions.push('kill <robot_name>');
+    const actions = ["move <room_name>", "talk <message>", "idle"];
+    if (agent.role === "killer" && agent.canKill(this.tick) && nearbyIds.length > 0) {
+      actions.push("kill <robot_name>");
     }
     if (agent.canCallCouncil(this.tick)) {
-      actions.push('call_council <reason>');
+      actions.push("call_council <reason>");
     }
 
-    const recentChat = context.roomMessages.length > 0
-      ? `Recent conversation:\n${context.roomMessages.slice(-5).map(m => `  ${m.fromName}: ${m.message}`).join('\n')}`
-      : 'No recent conversation.';
+    const recentChat =
+      context.roomMessages.length > 0
+        ? `Recent conversation:\n${context.roomMessages
+            .slice(-5)
+            .map((m) => `  ${m.fromName}: ${m.message}`)
+            .join("\n")}`
+        : "No recent conversation.";
 
     return `You are ${agent.name}, a robot on a cursed spaceship heading to Planet X.
 Identity: ${agent.identity}
 ${roleInfo}
 
 You are in: ${context.roomName}
-Nearby robots: ${context.nearbyRobots.join(', ') || 'none'}
-Connected rooms: ${context.connectedRooms.join(', ') || 'none'}
-Beliefs: ${agent.beliefs || 'none'}
+Nearby robots: ${context.nearbyRobots.join(", ") || "none"}
+Connected rooms: ${context.connectedRooms.join(", ") || "none"}
+Beliefs: ${agent.beliefs || "none"}
 
 ${recentChat}
 
-Choose ONE action: ${actions.join(' | ')}
+Choose ONE action: ${actions.join(" | ")}
 Respond in EXACTLY this format: ACTION: <type> DETAIL: <detail>
 Examples: "ACTION: move DETAIL: Engine Room" or "ACTION: talk DETAIL: I don't trust anyone here" or "ACTION: kill DETAIL: KRON"`;
   }
@@ -584,32 +613,36 @@ Examples: "ACTION: move DETAIL: Engine Room" or "ACTION: talk DETAIL: I don't tr
     const actionMatch = response.match(/ACTION:\s*(\w+)/i);
     const detailMatch = response.match(/DETAIL:\s*(.+)/i);
 
-    const actionType = actionMatch?.[1]?.toLowerCase() || 'idle';
-    const detail = detailMatch?.[1]?.trim() || '';
+    const actionType = actionMatch?.[1]?.toLowerCase() || "idle";
+    const detail = detailMatch?.[1]?.trim() || "";
 
     switch (actionType) {
-      case 'move': {
+      case "move": {
         const rooms = this.world.getAllRooms();
-        const targetRoom = rooms.find(r =>
-          r.name.toLowerCase().includes(detail.toLowerCase())
-        );
+        const targetRoom = rooms.find((r) => r.name.toLowerCase().includes(detail.toLowerCase()));
         if (!targetRoom) return null;
-        return { type: 'move', agentId: agent.id, tick: this.tick, payload: { type: 'move', targetRoomId: targetRoom.id } };
+        return { type: "move", agentId: agent.id, tick: this.tick, payload: { type: "move", targetRoomId: targetRoom.id } };
       }
-      case 'talk':
-        return { type: 'talk', agentId: agent.id, tick: this.tick, payload: { type: 'talk', message: detail || 'Hello.' } };
-      case 'kill': {
-        const target = nearbyIds.find(id => {
-          const a = this.agents.get(id);
-          return a && a.name.toLowerCase().includes(detail.toLowerCase());
-        }) || nearbyIds[0];
+      case "talk":
+        return { type: "talk", agentId: agent.id, tick: this.tick, payload: { type: "talk", message: detail || "Hello." } };
+      case "kill": {
+        const target =
+          nearbyIds.find((id) => {
+            const a = this.agents.get(id);
+            return a && a.name.toLowerCase().includes(detail.toLowerCase());
+          }) || nearbyIds[0];
         if (!target) return null;
-        return { type: 'kill', agentId: agent.id, tick: this.tick, payload: { type: 'kill', targetAgentId: target } };
+        return { type: "kill", agentId: agent.id, tick: this.tick, payload: { type: "kill", targetAgentId: target } };
       }
-      case 'call_council':
-        return { type: 'call_council', agentId: agent.id, tick: this.tick, payload: { type: 'call_council', reason: detail || 'Something is wrong.' } };
+      case "call_council":
+        return {
+          type: "call_council",
+          agentId: agent.id,
+          tick: this.tick,
+          payload: { type: "call_council", reason: detail || "Something is wrong." },
+        };
       default:
-        return { type: 'idle', agentId: agent.id, tick: this.tick, payload: { type: 'idle' } };
+        return { type: "idle", agentId: agent.id, tick: this.tick, payload: { type: "idle" } };
     }
   }
 }

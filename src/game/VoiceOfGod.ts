@@ -20,13 +20,19 @@ export class VoiceOfGodManager {
     return currentTick - this.lastRoundEnd >= this.config.voiceOfGodIntervalTicks;
   }
 
-  /** Start a new round — randomly select 10% of gods */
+  /** Start a new round — select at least N gods or the configured percentage */
   startRound(gods: God[], currentTick: number): VoiceOfGodRound {
     this.roundNumber++;
 
-    // Select ~10% of gods (minimum 1)
+    // Select either the minimum configured gods or the configured percentage, whichever is larger.
     const connectedGods = gods.filter(g => g.connected);
-    const selectionCount = Math.max(1, Math.ceil(connectedGods.length * this.config.voiceOfGodSelectionRate));
+    const selectionCount = Math.min(
+      connectedGods.length,
+      Math.max(
+        this.config.minVoiceOfGodSelections,
+        Math.ceil(connectedGods.length * this.config.voiceOfGodSelectionRate),
+      ),
+    );
 
     const shuffled = [...connectedGods].sort(() => Math.random() - 0.5);
     const selectedGods = shuffled.slice(0, selectionCount).map(g => g.id);
