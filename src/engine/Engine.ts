@@ -265,7 +265,7 @@ export class Engine {
   private scheduleAgentOperation(agent: Agent): void {
     if (agent.inProgressOperation) return;
 
-    const op = agent.startOperation("decide_action", this.tick);
+    const op = agent.startOperation(this.tick);
 
     if (!this.llm) {
       this.fallbackBehavior(agent, op);
@@ -291,17 +291,15 @@ export class Engine {
 
       const context = agent.buildContext(nearbyNames, roomName, connectedRooms, recentMessages, this.phase);
       const prompt = this.buildActionPrompt(agent, context, nearbyIds);
-      const response = await this.llm.generate(prompt, context);
+      const response = await this.llm.generate(prompt);
       const action = this.parseAction(agent, response, nearbyIds);
 
       if (action) {
         agent.completeOperation(op, action);
       } else {
-        op.status = "failed";
         agent.inProgressOperation = null;
       }
     } catch {
-      op.status = "failed";
       agent.inProgressOperation = null;
     }
   }

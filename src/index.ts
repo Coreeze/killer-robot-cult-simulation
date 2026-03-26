@@ -21,7 +21,7 @@ export type {
   GamePhase, GameConfig, GameState,
   MessageChannel, SimMessage,
   EngineEvent, EngineEventType,
-  LLMProvider, AsyncOperation, OperationStatus,
+  LLMProvider, AsyncOperation,
 } from './types/index.js';
 
 export { DEFAULT_CONFIG } from './types/index.js';

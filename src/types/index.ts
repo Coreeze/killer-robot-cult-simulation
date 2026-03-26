@@ -27,7 +27,7 @@ export interface Robot {
   status: "alive" | "dead" | "ejected";
   roomId: RoomId;
   imageUrl: string;
-  killer: boolean;
+  isKiller?: boolean;
   lastMessage?: string;
 }
 
@@ -46,6 +46,7 @@ export interface God {
   id: GodId;
   agentId: AgentId;
   connected: boolean;
+  isKiller?: boolean;
 }
 
 // just for logging purposes
@@ -53,6 +54,7 @@ export interface GodWhisper {
   godId: GodId;
   targetRobotId: AgentId;
   words: string; // 3 words max, anytime
+  tick: number;
 }
 
 export interface VoiceOfGodEntry {
@@ -75,8 +77,10 @@ export interface VoiceOfGodRound {
 export interface CouncilSession {
   id: string;
   calledBy: AgentId;
+  startTick: number;
+  endTick: number;
   messages: CouncilMessage[];
-  votes: Map<AgentId, AgentId>;
+  votes: Map<AgentId, AgentId | "skip">;
   result?: CouncilResult;
   active: boolean;
 }
@@ -84,7 +88,7 @@ export interface CouncilSession {
 export interface CouncilMessage {
   agentId: AgentId;
   message: string;
-  timestamp: number;
+  tick: number;
 }
 
 export interface CouncilResult {
@@ -225,18 +229,13 @@ export interface AgentContext {
 }
 
 export interface LLMProvider {
-  generate(prompt: string, context: AgentContext): Promise<string>;
+  generate(prompt: string): Promise<string>;
 }
 
-// --- Async Operation ---
-export type OperationStatus = "pending" | "running" | "completed" | "failed";
-
+// --- Pending action generation ---
 export interface AsyncOperation {
   id: OperationId;
   agentId: AgentId;
-  type: "decide_action" | "generate_speech" | "council_speak" | "council_vote";
-  status: OperationStatus;
   startedAt: number;
-  result?: AgentAction | string;
   generation: number;
 }

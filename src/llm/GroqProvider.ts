@@ -4,7 +4,7 @@
 // ============================================================
 
 import Groq from 'groq-sdk';
-import type { LLMProvider, AgentContext } from '../types/index.js';
+import type { LLMProvider } from '../types/index.js';
 
 export interface GroqProviderConfig {
   apiKey: string;
@@ -41,7 +41,7 @@ export class GroqProvider implements LLMProvider {
     this.maxConcurrency = config.maxConcurrency || 10;
   }
 
-  async generate(prompt: string, _context: AgentContext): Promise<string> {
+  async generate(prompt: string): Promise<string> {
     await this.acquireConcurrency();
     const start = Date.now();
 
