@@ -1,0 +1,31 @@
+{
+  "name": "killer-robot-cult-simulation",
+  "version": "1.0.0",
+  "description": "A-LINE: Killer Robot Cult AI Simulation Engine",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "demo": "tsc && node dist/examples/demo.js",
+    "demo:groq": "tsc && node dist/examples/demo-groq.js",
+    "dev": "tsc --watch"
+  },
+  "keywords": [
+    "simulation",
+    "ai",
+    "agents",
+    "game"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@types/node": "^25.5.0",
+    "@types/uuid": "^10.0.0",
+    "dotenv": "^17.3.1",
+    "eventemitter3": "^5.0.4",
+    "groq-sdk": "^1.1.2",
+    "typescript": "^6.0.2",
+    "uuid": "^13.0.0"
+  }
+}

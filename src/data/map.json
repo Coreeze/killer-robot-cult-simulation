@@ -1,0 +1,10 @@
+[
+  { "id": "bridge", "name": "Bridge", "connections": ["hallway", "comms"], "robots": [] },
+  { "id": "hallway", "name": "Hallway", "connections": ["bridge", "engine", "medbay", "cargo"], "robots": [] },
+  { "id": "engine", "name": "Engine Room", "connections": ["hallway"], "robots": [] },
+  { "id": "medbay", "name": "Medbay", "connections": ["hallway", "lab"], "robots": [] },
+  { "id": "lab", "name": "Lab", "connections": ["medbay"], "robots": [] },
+  { "id": "cargo", "name": "Cargo Bay", "connections": ["hallway", "airlock"], "robots": [] },
+  { "id": "airlock", "name": "Airlock", "connections": ["cargo"], "robots": [] },
+  { "id": "comms", "name": "Comms Room", "connections": ["bridge"], "robots": [] }
+]
